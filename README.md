@@ -9,7 +9,7 @@ This study analyzes changes in U.S. police shooting fatality rates during the 20
 
 The repo is structured as:
 
--   `data/raw_data` contains the raw data as obtained from https://github.com/washingtonpost/data-police-shootings.git.
+-   `data/raw_data` contains the raw data as obtained from https://github.com/washingtonpost/data-police-shootings.git, https://www.census.gov/programs-surveys/popest/technical-documentation/research/evaluation-estimates/2020-evaluation-estimates/2010s-state-total.html and https://www.census.gov/data/tables/time-series/demo/popest/2020s-state-total.html.
 -   `data/analysis_data` contains the cleaned dataset that was constructed.
 -   `model` contains fitted models. 
 -   `other` contains relevant literature, details about LLM chat interactions, and sketches.
