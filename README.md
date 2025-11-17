@@ -1,4 +1,4 @@
-# Analysis of Fatal Police Shootings in the United States
+# Fatal Police Shootings Analysis
 
 ## Overview
 
@@ -9,7 +9,7 @@ This study analyzes changes in U.S. police shooting fatality rates during the 20
 
 The repo is structured as:
 
--   `data/raw_data` contains the raw data as obtained from X.
+-   `data/raw_data` contains the raw data as obtained from https://github.com/washingtonpost/data-police-shootings.git.
 -   `data/analysis_data` contains the cleaned dataset that was constructed.
 -   `model` contains fitted models. 
 -   `other` contains relevant literature, details about LLM chat interactions, and sketches.
