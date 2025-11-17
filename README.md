@@ -1,4 +1,4 @@
-# Fatal Police Shootings Analysis
+# US Fatal Police Shootings Analysis
 
 ## Overview
 
