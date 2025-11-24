@@ -1,11 +1,10 @@
 #### Preamble ####
-# Purpose: Cleans the raw plane data recorded by two observers..... [...UPDATE THIS...]
-# Author: Rohan Alexander [...UPDATE THIS...]
-# Date: 6 April 2023 [...UPDATE THIS...]
-# Contact: rohan.alexander@utoronto.ca [...UPDATE THIS...]
+# Purpose: Cleans the raw data
+# Author: Zhixi(Arno) Qu
+# Date: 24 November 2025
+# Contact: zhixi.qu@mail.utoronto.ca
 # License: MIT
-# Pre-requisites: [...UPDATE THIS...]
-# Any other information needed? [...UPDATE THIS...]
+# Pre-requisites: None
 
 #### Workspace setup ####
 library(tidyverse)
@@ -14,7 +13,7 @@ library(readxl)
 library(forcats)
 library(dplyr)
 
-#### Clean data ####
+#### Download and Clean the data ####
 # path
 wapo_events_csv <- "data/01-raw_data/fatal-police-shootings-data.csv"
 nst_2020_xlsx <- "data/01-raw_data/nst-est2020.xlsx"
@@ -103,6 +102,6 @@ logistic_data <- police_shoot %>%
   dplyr::select(id, state, year, age_group, gender, race, whether_mental_ill, 
                 armed, flee, body_camera_binary)
 
-#### Save data ####
+#### Save Cleaned Data into analysis_data ####
 write_csv(state_year_rates, "data/02-analysis_data/state_year_rates.csv")
 write_csv(logistic_data, "data/02-analysis_data/logistic_data.csv")
