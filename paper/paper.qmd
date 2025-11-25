@@ -2,8 +2,7 @@
 title: "My title"
 subtitle: "My subtitle if needed"
 author: 
-  - First author
-  - Another author
+  - Zhixi(Arno) Qu
 thanks: "Code and data are available at: [https://github.com/RohanAlexander/starter_folder](https://github.com/RohanAlexander/starter_folder)."
 date: today
 date-format: long
@@ -18,8 +17,14 @@ bibliography: references.bib
 #| warning: false
 #| message: false
 
+#### Workspace setup ####
 library(tidyverse)
 library(palmerpenguins)
+library(readxl)
+
+#### Load data for graph ####
+state_year_rates = read_csv(here::here("data/02-analysis_data/state_year_rates.csv"))
+logistic_data = read_csv(here::here("data/02-analysis_data/logistic_data.csv"))
 ```
 
 
@@ -80,19 +85,39 @@ And also planes (@fig-planes). (You can change the height and width, but don't w
 
 ```{r}
 #| label: fig-planes
-#| fig-cap: Relationship between wing length and width
+#| fig-cap: U.S. Fatal police shooting rate over time per million (rate)
 #| echo: false
 #| warning: false
 #| message: false
+#| 
+us_year_rates = state_year_rates %>%
+  group_by(year) %>%
+  summarise(total_deaths_per_year = sum(deaths, na.rm = TRUE), 
+            total_pop_per_year = sum(pop, na.rm = TRUE), 
+            us_fatal_rate_per_million = 
+              total_deaths_per_year/total_pop_per_year*1000000,
+            .groups = "drop")
+ggplot(us_year_rates, aes(x = year, y = us_fatal_rate_per_million)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Year", y = "Rate") +
+  theme_minimal()
+```
 
-analysis_data <- read_csv(here::here("data/02-analysis_data/analysis_data.csv"))
-
-analysis_data |> 
-  ggplot(aes(x = width, y = length)) +
-  geom_point(alpha = 0.8) +
-  theme_minimal() +
-  labs(x = "Wing width (mm)",
-       y = "Wing length (mm)")
+```{r}
+#| label: fig
+#| fig-cap: Active Rate of Body Cameras in Fatal Police Shooting(US 2015–2024)
+#| echo: false
+#| warning: false
+#| message: false
+change_bodycamera = logistic_data %>%
+  group_by(year) %>%
+  summarise(num_death = n(), num_bodycam_on = sum(body_camera_binary == 1),
+            activation_rate = (num_bodycam_on / num_death)*100, .groups = "drop")
+ggplot(change_bodycamera, aes(x = year, y = activation_rate)) + geom_line() + 
+  geom_point() +
+  labs(x = "Year", y = "Rate(%)") +
+  theme_minimal()
 ```
 
 Talk way more about it. 
@@ -103,6 +128,45 @@ Add graphs, tables and text.
 
 Use sub-sub-headings for each outcome variable and feel free to combine a few into one if they go together naturally.
 
+```{r}
+#| label: fige
+#| fig-cap: Active Rate of Body Cameras in Fatal Police Shooting(US 2015–2024)
+#| echo: false
+#| warning: false
+#| message: false
+
+# 3a: race
+ggplot(logistic_data, aes(x = race)) + geom_bar() +
+  labs(x = "Race", y = "Count", title = "Distribution of victim race") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# 3b: gender
+ggplot(logistic_data, aes(x = gender)) + geom_bar() +
+  labs(x = "Gender", y = "Count", title = "Distribution of victim gender") +
+  theme_minimal()
+
+# 3c: age_group
+ggplot(logistic_data, aes(x = age_group)) + geom_bar() +
+  labs(x = "Age group", y = "Count", title = "Distribution of victim age groups") +
+  theme_minimal()
+
+# 3d: armed
+ggplot(logistic_data, aes(x = armed)) + geom_bar() +
+  labs(x = "Armed status", y = "Count", title = "Distribution of armed status") +
+  theme_minimal()
+
+# 3e: flee
+ggplot(logistic_data, aes(x = flee)) + geom_bar() +
+  labs(x = "Fleeing status", y = "Count", title = "Distribution of fleeing status"
+       ) + theme_minimal()
+
+# 3f: whether_mental_ill
+ggplot(logistic_data, aes(x = whether_mental_ill)) +geom_bar() +
+  labs(x = "Mental-illness related", y = "Count", 
+       title = "Incidents flagged as related to mental illness") + 
+  theme_minimal()
+```
 
 
 
@@ -120,14 +184,44 @@ Here we briefly describe the Bayesian analysis model used to investigate... Back
 
 Define $y_i$ as the number of seconds that the plane remained aloft. Then $\beta_i$ is the wing width and $\gamma_i$ is the wing length, both measured in millimeters.  
 
-\begin{align} 
-y_i|\p_i &\sim \mbox{Bernolli}(p_i) \\
-\log\left(\frac{\hat{p}_i}{1-\hat{p}_i}\right) &= \beta_0 + \beta_1 \,\text{race}_i + \beta_2 \,\text{gender}_i + \beta_3 \,\text{age}_i + \beta_4 \,\text{armed}_i + \beta_5 \,\text{flee}_i + \beta_6 \,\text{mental health}_i + \beta_7 \,\text{year}_i\\
-\alpha &\sim \mbox{Normal}(0, 2.5) \\
-\beta &\sim \mbox{Normal}(0, 2.5) \\
-\gamma &\sim \mbox{Normal}(0, 2.5) \\
-\sigma &\sim \mbox{Exponential}(1)
-\end{align}
+\begin{align*}
+y_i \mid p_i &\sim \text{Bernoulli}(p_i) \nonumber
+\end{align*}
+\begin{align*}
+\log\left(\frac{\hat{p}_i}{1 - \hat{p}_i}\right)
+  &= \beta_0
+   + \beta_1 \,\text{race}_i
+   + \beta_2 \,\text{gender}_i
+   + \beta_3 \,\text{age}_i
+   + \beta_4 \,\text{armed}_i
+   + \beta_5 \,\text{flee}_i \\[-2pt]
+  &\quad
+   + \beta_6 \,\text{mental\_health}_i
+   + \beta_7 \,\text{year}_i
+   + \beta_8 \,\text{race}_i \times \text{year}_i
+\end{align*}
+
+\begin{align*}
+\beta_0 &\sim \text{Normal}(0, 2.5) \\
+\beta_1 &\sim \text{Normal}(0, 2.5) \\
+\beta_2 &\sim \text{Normal}(0, 2.5) \\
+\beta_3 &\sim \text{Normal}(0, 2.5) \\
+\beta_4 &\sim \text{Normal}(0, 2.5) \\
+\beta_5 &\sim \text{Normal}(0, 2.5) \\
+\beta_6 &\sim \text{Normal}(0, 2.5) \\
+\beta_7 &\sim \text{Normal}(0, 2.5) \\
+\beta_8 &\sim \text{Normal}(0, 2.5)
+\end{align*}
+
+where,
+
+- $\hat{p}$ represents the probability that the .
+- $\beta_0$ represents the intercept term of this logistical regression. It is the probability that someone will successfully summit the peak they are on the expedition for if the predictors' values are zero
+- $\beta_1$ is the coefficient corresponding to height of the peak
+- $\beta_2$ is the coefficient corresponding to sex of the person
+- $\beta_3$ is the coefficients corresponding to age of the person
+- $\beta_4$ is the coefficients corresponding to seasons of the person
+- $\beta_5$ is the coefficients corresponding to if the person is attempting the summit alone
 
 We run the model in R [@citeR] using the `rstanarm` package of @rstanarm. We use the default priors from `rstanarm`.
 
@@ -155,21 +249,7 @@ first_model <-
   readRDS(file = here::here("models/first_model.rds"))
 ```
 
-```{r}
-#| echo: false
-#| eval: true
-#| label: tbl-modelresults
-#| tbl-cap: "Explanatory models of flight time based on wing width and wing length"
-#| warning: false
 
-modelsummary::modelsummary(
-  list(
-    "First model" = first_model
-  ),
-  statistic = "mad",
-  fmt = 2
-)
-```
 
 
 
@@ -198,57 +278,6 @@ Weaknesses and next steps should also be included.
 
 
 # Additional data details
-
-# Model details {#sec-model-details}
-
-## Posterior predictive check
-
-In @fig-ppcheckandposteriorvsprior-1 we implement a posterior predictive check. This shows...
-
-In @fig-ppcheckandposteriorvsprior-2 we compare the posterior with the prior. This shows... 
-
-```{r}
-#| eval: true
-#| echo: false
-#| message: false
-#| warning: false
-#| label: fig-ppcheckandposteriorvsprior
-#| layout-ncol: 2
-#| fig-cap: "Examining how the model fits, and is affected by, the data"
-#| fig-subcap: ["Posterior prediction check", "Comparing the posterior with the prior"]
-
-pp_check(first_model) +
-  theme_classic() +
-  theme(legend.position = "bottom")
-
-posterior_vs_prior(first_model) +
-  theme_minimal() +
-  scale_color_brewer(palette = "Set1") +
-  theme(legend.position = "bottom") +
-  coord_flip()
-```
-
-## Diagnostics
-
-@fig-stanareyouokay-1 is a trace plot. It shows... This suggests...
-
-@fig-stanareyouokay-2 is a Rhat plot. It shows... This suggests...
-
-```{r}
-#| echo: false
-#| eval: true
-#| message: false
-#| warning: false
-#| label: fig-stanareyouokay
-#| fig-cap: "Checking the convergence of the MCMC algorithm"
-#| fig-subcap: ["Trace plot", "Rhat plot"]
-#| layout-ncol: 2
-
-plot(first_model, "trace")
-
-plot(first_model, "rhat")
-```
-
 
 
 \newpage
