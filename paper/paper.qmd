@@ -212,8 +212,8 @@ y_i \mid p_i &\sim \text{Bernoulli}(p_i) \nonumber
 \beta_7 &\sim \text{Normal}(0, 2.5) \\
 \beta_8 &\sim \text{Normal}(0, 2.5)
 \end{align*}
-
 where,
+
 - $\hat{p}$ represents the probability that the body camera were activated.
 - $\beta_0$ represents the intercept term of this logistical regression. It is the probability that body cameras being activated when an individual belongs to the reference group for each categorical variable and the year is 2015.
 - $\beta_1$ is the coefficient corresponding to race of the victim.
