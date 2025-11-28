@@ -279,11 +279,16 @@ Weaknesses and next steps should also be included.
 
 
 # References
-Body-Worn Cameras-Toronto Police Service.(2020). https://www.tps.ca/use-technology/body-worn-cameras/
+Body-Worn Cameras-Toronto Police Service.(2020). https://www.tps.ca/use-technology/body-worn-cameras/ 
+
 Sponsored content: Body-Worn cameras build transparency and trust for law enforcement across the nation. (2024). POLITICO. https://www.politico.com/sponsored/2024/06/body-worn-cameras-build-transparency-and-trust-for-law-enforcement-across-the-nation/
+
 washingtonpost/data-police-shootings: The Washington Post is compiling a database of every fatal shooting in the United States by a police officer in the line of duty since 2015. (2025). https://github.com/washingtonpost/data-police-shootings
+
 US Census Bureau. (2021, October 8). State population totals: 2010-2020. Census.gov. https://www.census.gov/programs-surveys/popest/technical-documentation/research/evaluation-estimates/2020-evaluation-estimates/2010s-state-total.html
+
 US Census Bureau. (2025, May 28). State Population Totals and Components of Change: 2020-2024. Census.gov. https://www.census.gov/data/tables/time-series/demo/popest/2020s-state-total.html
+
 Use-of-Force. (2024, June 10). Federal Bureau of Investigation. https://www.fbi.gov/how-we-can-help-you/more-fbi-services-and-information/ucr/use-of-force
 
 
