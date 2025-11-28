@@ -13,25 +13,24 @@ library(tidyverse)
 library(rstanarm)
 
 #### Read data ####
-analysis_data <- read_csv("data/analysis_data/analysis_data.csv")
+logistic_data <- read_csv("data/02-analysis_data/logistic_data.csv")
 
 ### Model data ####
-first_model <-
-  stan_glm(
-    formula = flying_time ~ length + width,
-    data = analysis_data,
-    family = gaussian(),
-    prior = normal(location = 0, scale = 2.5, autoscale = TRUE),
-    prior_intercept = normal(location = 0, scale = 2.5, autoscale = TRUE),
-    prior_aux = exponential(rate = 1, autoscale = TRUE),
-    seed = 853
-  )
+set.seed(1008273333)
+logistic_data = logistic_data %>%
+  mutate(race = factor(race), gender = factor(gender), 
+         age_group = factor(age_group), armed = factor(armed), 
+         flee = factor(flee), whether_mental_ill = factor(whether_mental_ill))
+model = stan_glm(body_camera_binary ~ gender + age_group + flee + 
+                   whether_mental_ill + year + race*armed,
+                 data = logistic_data, family = binomial(link = "logit"),
+                 prior = normal(0, 2.5, autoscale = FALSE),
+                 prior_intercept = normal(0, 2.5, autoscale = FALSE),
+                 chains = 4, iter = 2000, seed = 1008273333)
+summary(model, probs = c(0.05, 0.95))
 
 
 #### Save model ####
-saveRDS(
-  first_model,
-  file = "models/first_model.rds"
-)
+saveRDS(model, file = "models/first_model.rds")
 
 
