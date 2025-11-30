@@ -1,14 +1,15 @@
 ---
-title: "Analysis of Law Enforcement Transparency in Fatal Police Shootings in the United States from 2015 to 2024"
-subtitle: "My subtitle if needed"
+title: "Analysis of Law Enforcement Transparency in Fatal Police Shootings"
+subtitle: "In the United States from 2015 to 2024"
 author: 
   - Zhixi(Arno) Qu
 thanks: "Code and data are available at: https://github.com/ZhixiQu/US-Fatal-Police-Shootings.git"
 date: today
 date-format: long
-abstract: "First sentence. Second sentence. Third sentence. Fourth sentence."
+abstract: "This study analyzes the relationship between demographic characteristics of victims, case situation, and whether police activated body cameras based on U.S. fatal police shooting data. Data were sourced from fatal police shootings dataset of the Washington, primarily covering cases occurring between 2015 and 2024. Two census datasets from the U.S. Census Bureau were also utilized to analyze annual changes in per-million fatality rates. Most importantly, Bayesian Logistic Regression model was used to analyze trends and factors influencing whether body cameras were activated in each case. Results indicate that the minor victims and victim had mental health illness significantly increases the probability of body camera activation during cases. This study contributes to a more detailed analysis of current unfairness in law enforcement transparency and provides a basis for future targeted interventions and police training."
 format: pdf
 number-sections: true
+toc: true
 bibliography: references.bib
 ---
 
@@ -21,6 +22,12 @@ bibliography: references.bib
 library(tidyverse)
 library(palmerpenguins)
 library(readxl)
+library(rstanarm)
+library(pROC)
+library(modelsummary)
+library(bayesplot)
+library(knitr)
+library(bayesplot)
 
 #### Load data for graph ####
 state_year_rates = read_csv(here::here("data/02-analysis_data/state_year_rates.csv"))
@@ -63,7 +70,6 @@ Each row in the original U.S. police fatality dataset organized by The Washingto
 #| echo: false
 #| warning: false
 #| message: false
-#| 
 us_year_rates = state_year_rates %>%
   group_by(year) %>%
   summarise(total_deaths_per_year = sum(deaths, na.rm = TRUE), 
@@ -117,69 +123,148 @@ ggplot(change_bodycamera, aes(x = year, y = activation_rate)) + geom_line() +
 
 ## Predictor variables
 
-Add graphs, tables and text.
-
-Use sub-sub-headings for each outcome variable and feel free to combine a few into one if they go together naturally.
-
 ```{r}
-#| label: fige
-#| fig-cap: Active Rate of Body Cameras in Fatal Police Shooting(US 2015–2024)
+#| label: fig-predictor
+#| fig-cap: "Distributions of victim and incident characteristics-main predictor variable"
+#| fig-subcap:
+#|   - "Race"
+#|   - "Gender"
+#|   - "Age group"
+#|   - "Armed status"
+#|   - "Fleeing status"
+#|   - "Mental-illness related"
+#| layout-ncol: 2
 #| echo: false
 #| warning: false
 #| message: false
 
-# 3a: race
+# 3a race
 ggplot(logistic_data, aes(x = race)) + geom_bar() +
-  labs(x = "Race", y = "Count", title = "Distribution of victim race") +
-  theme_minimal() +
+  labs(x = "Race", y = "Count") + theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# 3b: gender
+# 3b gender
 ggplot(logistic_data, aes(x = gender)) + geom_bar() +
-  labs(x = "Gender", y = "Count", title = "Distribution of victim gender") +
-  theme_minimal()
+  labs(x = "Gender", y = "Count") + theme_minimal()
 
 # 3c: age_group
 ggplot(logistic_data, aes(x = age_group)) + geom_bar() +
-  labs(x = "Age group", y = "Count", title = "Distribution of victim age groups") +
-  theme_minimal()
+  labs(x = "Age group", y = "Count") + theme_minimal()
 
 # 3d: armed
 ggplot(logistic_data, aes(x = armed)) + geom_bar() +
-  labs(x = "Armed status", y = "Count", title = "Distribution of armed status") +
-  theme_minimal()
+  labs(x = "Armed status", y = "Count") + theme_minimal()
 
 # 3e: flee
 ggplot(logistic_data, aes(x = flee)) + geom_bar() +
-  labs(x = "Fleeing status", y = "Count", title = "Distribution of fleeing status"
-       ) + theme_minimal()
+  labs(x = "Fleeing status", y = "Count") + theme_minimal()
 
 # 3f: whether_mental_ill
 ggplot(logistic_data, aes(x = whether_mental_ill)) +geom_bar() +
-  labs(x = "Mental-illness related", y = "Count", 
-       title = "Incidents flagged as related to mental illness") + 
-  theme_minimal()
+  labs(x = "Mental-illness related", y = "Count") + theme_minimal()
 ```
 
+@fig-predictor shows the variables I will include in the model. In U.S. police fatal shootings, victims are majority white and male. The age group distribution is close to normal, with victims primarily concentrated between 30 and 44 years old. Most victims were documented as possessing high-threat weapons, and the majority did not attempt to flee. Cases involving mental health issues for the victim were relatively less common, with more cases involving victims without mental health issues. Notably, sample sizes were uneven across groups, but this is common in extreme cases such as fatal police force data. Therefore, this study remains valuable. After gaining an initial understanding of the quantitative differences across variables, it is necessary to further examine the proportion of body camera recordings activated under different victim and case characteristics.
 
+```{r}
+#| label: fig-pre-body
+#| fig-cap: "Proportion of body camera in each main predictor variable"
+#| fig-subcap:
+#|   - "Race"
+#|   - "Gender"
+#|   - "Age group"
+#|   - "Armed status"
+#|   - "Fleeing status"
+#|   - "Mental-illness related"
+#| layout-ncol: 2
+#| echo: false
+#| warning: false
+#| message: false
+# label the body carema
+logistic_plot = logistic_data %>%
+  mutate(bc = factor(body_camera_binary, levels = c(1, 0),
+                          labels = c("ON", "OFF")))
+breaks_vec = seq(0, 1, 0.2)
+# race
+race_prop = logistic_plot %>%
+  group_by(race, bc) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  mutate(prop = n/sum(n))
+ggplot(race_prop, aes(x = race, y = prop, fill = bc)) + geom_col() +
+  scale_y_continuous(limits = c(0, 1), breaks = breaks_vec, 
+                     labels = paste0(breaks_vec * 100, "%")) +
+  scale_fill_manual(values = c("ON" = "greenyellow", "OFF" = "red"),
+                    name = "Body Camera Activation") +
+  labs(x = "Race", y = "Proportion") + theme_minimal()
+# gender
+gender_prop <- logistic_plot %>%
+  group_by(gender, bc) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  mutate(prop = n / sum(n))
+ggplot(gender_prop, aes(x = gender, y = prop, fill = bc)) + geom_col() + 
+  scale_y_continuous(limits = c(0, 1), breaks = breaks_vec, 
+                     labels = paste0(breaks_vec * 100, "%")) +
+  scale_fill_manual(values = c("ON" = "greenyellow", "OFF" = "red"), 
+                    name = "Body Camera Activation") +
+  labs(x = "Gender", y = "Proportion") + theme_minimal()
+# age group
+age_prop = logistic_plot %>%
+  group_by(age_group, bc) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  mutate(prop = n/sum(n))
+ggplot(age_prop, aes(x = age_group, y = prop, fill = bc)) + geom_col() +
+  scale_y_continuous(limits = c(0, 1), breaks = breaks_vec, 
+                     labels = paste0(breaks_vec * 100, "%")) +
+  scale_fill_manual(values = c("ON" = "greenyellow", "OFF" = "red"),
+                    name = "Body Camera Activation") +
+  labs(x = "Age Group", y = "Proportion") + theme_minimal()
+# Armed
+armed_prop = logistic_plot %>%
+  group_by(armed, bc) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  mutate(prop = n/sum(n))
+ggplot(armed_prop, aes(x = armed, y = prop, fill = bc)) + geom_col() +
+  scale_y_continuous(limits = c(0, 1), breaks = breaks_vec, 
+                     labels = paste0(breaks_vec * 100, "%")) +
+  scale_fill_manual(values = c("ON" = "greenyellow", "OFF" = "red"),
+                    name = "Body Camera Activation") +
+  labs(x = "Armed Status of Victim", y = "Proportion") + theme_minimal()
+# Flee
+flee_prop = logistic_plot %>%
+  group_by(flee, bc) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  mutate(prop = n/sum(n))
+ggplot(flee_prop, aes(x = flee, y = prop, fill = bc)) + geom_col() +
+  scale_y_continuous(limits = c(0, 1), breaks = breaks_vec, 
+                     labels = paste0(breaks_vec * 100, "%")) +
+  scale_fill_manual(values = c("ON" = "greenyellow", "OFF" = "red"),
+                    name = "Body Camera Activation") +
+  labs(x = "Fleeing Status of Victim", y = "Proportion") + theme_minimal()
+# mental illness
+mental_prop = logistic_plot %>%
+  group_by(whether_mental_ill, bc) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  mutate(prop = n/sum(n))
+ggplot(mental_prop, aes(x = whether_mental_ill, y = prop, fill = bc)) + 
+  geom_col() + scale_y_continuous(limits = c(0, 1), breaks = breaks_vec, 
+                                  labels = paste0(breaks_vec * 100, "%")) +
+  scale_fill_manual(values = c("ON" = "greenyellow", "OFF" = "red"),
+                    name = "Body Camera Activation") +
+  labs(x = "Mental Illness of Victim", y = "Proportion") + theme_minimal()
+```
 
-
-
+@fig-pre-body shows the proportions of body cameras activated during U.S. police fatal shootings across different variables. Most obviously, the activation rate remains low across all variables, consistent with the annual trends observed earlier. The difference in body camera activation rates across the variables is generally not significant, but the direction of this difference is the primary purpose of this study. For example, regarding the mental health status of the victim, cases involving victims with mental health issues showed a slightly higher proportion of body cameras being activated. Although the difference in the proportion is not large, as society increasingly focuses on interactions between individuals with mental illness and police,(2021) the direction of this difference is very meaningful in real world. This indicates that in fatal cases involving victims with mental health issues, police officers may be more motivated to activate body camera. Overall, there are slight and directional variations in body camera activation proportions across different demographics and enforcement scenarios. These differences may be due to sample quality or the victim and enforcement situation. Visualizing alone cannot fully explain these variations, therefore models are needed to analyze the factors influencing body camera activation.
 
 
 # Model {#sec-model}
 
-The goal of our modelling strategy is twofold. Firstly,...
-
-Here we briefly describe the Bayesian analysis model used to investigate... Background details and diagnostics are included in [Appendix -@sec-model-details].
+This study will use the Bayesian Logistic Regression model to analyze which situational and individual characteristics are associated with the activation of body cameras in fatal police shootings in the United States. Since the dependent variable is binary (whether the body camera was activated) and police shootings are a socially sensitive issue, predictions cannot be made based on the data alone, and the reliability of the predictions must be ensured. The model employs a binomial distribution as the likelihood function and uses a logit link function to ensure predicted values which is the probability of activation of body camera fall within the range of 0 to 1.
 
 ## Model set-up
-
-Define $y_i$ as the number of seconds that the plane remained aloft. Then $\beta_i$ is the wing width and $\gamma_i$ is the wing length, both measured in millimeters.  
-
+The observation unit is each fatal police shooting case in The Washington Post dataset, denoted as i for the $i_{th}$ case. If the police officer activated the body camera during the incident, $y_i$ = 1; otherwise, $y_i$ = 0. pi represents the probability of the body camera being activated in incident i. Given pi, the outcome of each incident follows a Bernoulli distribution:
 \begin{align*}
 y_i \mid p_i &\sim \text{Bernoulli}(p_i) \nonumber
 \end{align*}
+Also, using the logit link function to fit the final model:
 \begin{align*}
 \log\left(\frac{\hat{p}_i}{1 - \hat{p}_i}\right)
   &= \beta_0
@@ -193,7 +278,7 @@ y_i \mid p_i &\sim \text{Bernoulli}(p_i) \nonumber
    + \beta_7 \,\text{year}_i
    + \beta_8 \,\text{race}_i \times \text{armed}_i
 \end{align*}
-
+Prior distribution of parameter:
 \begin{align*}
 \beta_0 &\sim \text{Normal}(0, 2.5) \\
 \beta_1 &\sim \text{Normal}(0, 2.5) \\
@@ -205,9 +290,9 @@ y_i \mid p_i &\sim \text{Bernoulli}(p_i) \nonumber
 \beta_7 &\sim \text{Normal}(0, 2.5) \\
 \beta_8 &\sim \text{Normal}(0, 2.5)
 \end{align*}
-where,
+where $\beta_1,...,\beta_8$ means that holding other variables constant, on average, how much does the log-odds ratio change when the variable or interaction term corresponding to parameter increases by one unit.
 
-- $\hat{p}$ represents the probability that the body camera were activated.
+- $\hat{p}$ represents the probability that the body camera were activated in each case.
 - $\beta_0$ represents the intercept term of this logistical regression. It is the probability that body cameras being activated when an individual belongs to the reference group for each categorical variable and the year is 2015.
 - $\beta_1$ is the coefficient corresponding to race of the victim.
 - $\beta_2$ is the coefficient corresponding to gender of the victim.
@@ -218,61 +303,247 @@ where,
 - $\beta_7$ is the coefficients corresponding to the year the event occurred.
 - $\beta_8$ is the coefficients corresponding to the interaction term between the race of victim and whether the victim were armed.
 
-We run the model in R [@citeR] using the `rstanarm` package of @rstanarm. We use the default priors from `rstanarm`.
+For the Bayesian model, I set a weakly informative prior of the same form for $\beta_0,...,\beta_8$. The prior mean is set to 0 because there is no significant difference in body camera activation rates between groups based on the variable plots. The prior standard deviation is set to 2.5 because I have no strong prior beliefs about the direction or magnitude of the covariates before observing the data. Most importantly, the sample sizes for different categories vary greatly. A moderately appropriate prior distribution provides more stable estimates and prevents overfitting. To avoid extreme or unstable estimates, I moderately shrink the prior distribution rather than using a non-information prior. A non-information prior would allow the posterior distribution to be entirely determined by the data, which is inappropriate for uneven sample sizes across categories in this study.
 
+Bayesian Logistic regression requires certain assumptions. First, samples must be independent given the covariates. However, it is very difficult to satisfy data independence in reality. The same state or police department may have similar enforcement requirements and cultural environments, leading to potential correlations between samples. Therefore, given these covariates, events can be approximated as conditionally independent but not strictly independent. Based on my current understanding, only the Linear Mixture Model could better address sample correlations. However, the dependent variable in this study is whether body cameras were activated which is a binary variable, making the Linear Mixture Model unsuitable for this problem. Realistically, data and models may not capture all potential variables, such as some police do not respect with law enforcement guidelines. Most importantly, processing errors may occur during data collection and recording. (2025) Therefore, the findings of this study will be descriptive associations rather than strict causal inferences. Finally, this research focuses on extreme fatality cases, so its conclusions may not be appropriate to generalize ordinary police encounter situations.
 
-### Model justification
-
-We expect a positive relationship between the size of the wings and time spent aloft. In particular...
-
-We can use maths by including latex between dollar signs, for instance $\theta$.
-
-
-# Results {#sec-result}
-
-Our results are summarized in @tbl-modelresults.
+The study uses the `rstanarm` package of @rstanarm in R [@citeR] to fit a Bayesian Logistic Regression Model via Markov Chain Monte Carlo (MCMC) sampling from the posterior distribution of coefficients. After model fitting, I first checked basic convergence diagnostics, such as whether trace plots exhibited uniform shaking and whether the $\hat R$ of each parameter approached 1, to ensure the MCMC chain had converged. To evaluate model performance, data were randomly split into training (70%) and testing (30%) sets. The model was fitted on the training set, and predictions were made on the testing set using the posterior mean. Approximate prediction accuracy and Area Under the ROC Curve (AUC) were calculated. The results indicate that the model has some predictive capability regarding the activation of body cameras.
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| results: 'hide'
+set.seed(1008273333)
+logistic_data = logistic_data %>%
+  mutate(race = factor(race), gender = factor(gender), 
+         age_group = factor(age_group), armed = factor(armed), 
+         flee = factor(flee), whether_mental_ill = factor(whether_mental_ill))
+model = stan_glm(body_camera_binary ~ gender + age_group + flee + 
+                   whether_mental_ill + year + race*armed,
+                 data = logistic_data, family = binomial(link = "logit"),
+                 prior = normal(0, 2.5, autoscale = FALSE),
+                 prior_intercept = normal(0, 2.5, autoscale = FALSE),
+                 chains = 4, iter = 2000, seed = 1008273333)
+# train and test data
+set.seed(757656)
+n = nrow(logistic_data)
+train_id = sample.int(n, size = floor(0.7 * n))
+train_data = logistic_data[train_id, ]
+test_data = logistic_data[-train_id, ]
+# model validation
+set.seed(95329)
+model_train = stan_glm(body_camera_binary ~ gender + age_group + flee + 
+                         whether_mental_ill + year + race*armed,
+                       data = train_data, family = binomial(link = "logit"),
+                       prior = normal(0, 2.5, autoscale = FALSE),
+                       prior_intercept = normal(0, 2.5, autoscale = FALSE),
+                       chains = 4, iter = 2000, warmup = 1000, seed = 95329)
+post_pred_test = posterior_linpred(model_train, newdata = test_data,
+                                   transform = TRUE)
+p_hat_bayes = colMeans(post_pred_test)
+true_y_test = test_data$body_camera_binary
+y_pred_bayes = ifelse(p_hat_bayes > 0.5, 1, 0)
+accur_bayes = mean(y_pred_bayes == true_y_test)
+# ROC and AUC
+roc_bayes = roc(response = true_y_test, predictor = p_hat_bayes)
+auc_bayes = auc(roc_bayes)
+######### Other Model#######
+# Normal GLM
+model_glm = glm(body_camera_binary ~ gender + age_group + flee + 
+                  whether_mental_ill + year + race*armed, data = logistic_data, 
+                family = binomial(link = "logit"))
+glm_train = glm(body_camera_binary ~ gender + age_group + flee + 
+                  whether_mental_ill + year + race*armed, data = train_data,
+                family = binomial(link = "logit"))
+p_hat_glm = predict(glm_train, newdata = test_data, type = "response")
+y_pred_glm = ifelse(p_hat_glm > 0.5, 1, 0)
+accur_glm = mean(y_pred_glm == true_y_test)
+roc_glm = roc(response = true_y_test, predictor = p_hat_glm)
+auc_glm = auc(roc_glm)
+# simple
+model_simple_glm = glm(body_camera_binary ~ race + gender + age_group + armed + 
+                         flee + whether_mental_ill + year, data = train_data, 
+                       family = binomial(link = "logit"))
+p_hat_simple = predict(model_simple_glm, newdata = test_data, type = "response")
+y_pred_simple = ifelse(p_hat_simple > 0.5, 1, 0)
+accur_simple = mean(y_pred_simple == true_y_test)
+roc_simple = roc(response = true_y_test, predictor = p_hat_simple)
+auc_simple = auc(roc_simple)
+# complex
+model_complex_glm = glm(body_camera_binary ~ age_group + whether_mental_ill + 
+                          year + race*armed + flee*gender, 
+                        data = train_data, family = binomial(link = "logit"))
+p_hat_complex = predict(model_complex_glm, newdata = test_data, type = "response")
+y_pred_complex = ifelse(p_hat_complex > 0.5, 1, 0)
+accur_complex = mean(y_pred_complex == true_y_test)
+roc_complex = roc(response = true_y_test, predictor = p_hat_complex)
+auc_complex = auc(roc_complex)
+# AUC table
+AUC_table = tibble(model = c("Bayesian logistic", "Logistic", "Simple GLM", 
+                             "Complex GLM"), Accurace = c(accur_bayes, accur_glm, 
+                                                          accur_simple, 
+                                                          accur_complex),
+       Area_under_curve = c(auc_bayes, auc_glm, auc_simple, auc_complex))
+```
+
+```{r}
+#| label: tbl-compmodel
+#| echo: false
+#| message: false
+#| warning: false
+AUC_df = datasummary_df(AUC_table, output = "data.frame")
+kable(AUC_df, format = "latex", booktabs = TRUE,
+      caption = "Table of Compare Models Based on Accuracy and AUC")
+```
+
+To evaluate the quality of model fit and determine whether the model is significantly overfitted or underfitted, I compared the Bayesian logistic regression used in the main analysis with several alternative models. These included Logistic Regression using the same covariates, a simpler Bayesian Logistic Regression containing only year and primary demographic variables, and a more complex Bayesian Logistic Regression with additional interaction terms. @tbl-compmodel shows the prediction accuracy and area under the ROC curve (AUC) for each model on the independent test set. Results show that all four models achieved accuracy around 0.82 and AUC around 0.66. This indicates that in the current analysis data, the impact of any alternative models or variants on overall predictive performance is very limited. However, Bayesian logistic regression can directly provide posterior distributions and credible intervals for coefficients, making it more beneficial for quantifying and interpreting uncertainty. Therefore, Bayesian Logistic Regression is the final model choice in this study. More diagnostics and graphs will be included in the @sec-appendix.
+
+# Results {#sec-result}
+```{r}
+#| label: tbl-modelresults
+#| tbl-cap: "Coefficient Estimates and 95% Credible Intervals"
 #| echo: false
 #| eval: true
 #| warning: false
 #| message: false
-
-library(rstanarm)
-
-first_model <-
-  readRDS(file = here::here("models/first_model.rds"))
+models_estimator = get_estimates(model)
+model_summary = models_estimator %>%
+  dplyr::select(term, estimate, conf.low, conf.high)
+# need add parameter output = "latex" when put into qmd
+model_summary = datasummary_df(model_summary, output = "data.frame")
+kable(model_summary, format = "latex", booktabs = TRUE)
 ```
 
+@tbl-modelresults presents the coefficient estimates and 95% credible intervals for the log-odds of whether body camera was activated in the Bayesian logistic regression model. `conf.low` and `conf.high` represent the lower and upper bounds of the 95% credible intervals, respectively. The 95% credible intervals indicate that there is 95% probability that the true value lies within this range, given that the model assumptions hold. In the model, categorical variables are coded using a reference group: race uses `Asian` as the reference group, gender uses `female` as the reference, age uses `under 18` as the reference, armed uses `unarmed` as the reference group, flee uses `no`(not flee) as the reference group, and mental health variables use `no` (no mental illness) as the reference. Thus, each coefficient represents the average difference between corresponding group in the log odds of activating the body camera relative to the reference group, holding all other variables constant. If the 95% credible interval is entirely below 0, this indicates strong evidence that the probability of police activated body cameras is lower for this category relative to the reference group. If the interval is entirely above 0, it corresponds to a higher activation probability. An interval crossing 0 indicates weaker evidence or no clear evidence.
 
+```{r}
+#| label: fig-summarytable
+#| fig-cap: Coefficient Estimates and 95% Credible Intervals
+#| echo: false
+#| warning: false
+#| message: false
+model_plot = modelplot(list("Bayesian logistic" = model), 
+                       coef_omit = "(Intercept)")
+model_plot + geom_vline(xintercept = 0, colour = "red",
+                                        linetype = "dashed") +
+  labs(x = NULL, y = NULL)
+```
+To provide a more visual representation of how predictor variables influence the log-odds of whether body camera was activated, I created a visualization based on the previous summary table of the model. The vertical axis displays different race, gender, age group, and situational variables. The horizontal axis shows the strength of the relationship between the predictor variable and log-odds of body camera activation. Specifically, it indicates the different in the predictor variables relative to the reference group regarding body camera activation, holding all other variables constant. Each point represents the estimated coefficient for a predictor variable, with the horizontal line indicating the 95% credible interval around the estimate.
 
-
-
+Regarding victim age, with those under 18 as the reference group, @fig-summarytable shows that coefficients and intervals for all higher age groups fall to the left of zero. This indicates that the probability of activating body cameras is generally lower when victims are older individuals. Particularly within the 18-59 age group, the proportion of cameras activated statistically decreases with increasing age. The coefficient for victims with mental illness is positive, with intervals entirely above zero. This indicates that when victims have mental illness, the probability of the body camera being activated is significantly higher compared to victims without mental illness. This aligns with the previously mentioned societal focus on interactions between individuals with mental illness and police. Furthermore, the usage rate of body cameras has increased significantly over the years. However, under this dataset, the model did not find highly stable and significant associations between victim gender, whether the victim was armed, or whether the victim fled, and the activation of body-worn cameras. For example, compared to Asian victims, the 95% credible intervals for the coefficients of other race of victim included zero, indicating that after controlling for other variables, the probability of activating body cameras in these cases differed from that of Asian victims but was not significantly different. Finally, I added an interaction term between victim race and whether the victim was armed (race × armed) to the main model to examine whether the effect of whether the victim was armed differs across races. Specifically, this allows us to investigate whether there are systematic differences in the probability of body cameras activation across races in U.S. fatal police shooting, when the victim's armed status is the same. The 95% credible intervals for most interaction coefficients cross zero and were relatively wide, indicating that in this data, controlling for other variables, there was no strong evidence to conclude that there is a systemic difference in the impact of armed status of victim on body camera activation across race groups.
 
 # Discussion {#sec-discussion}
 
-## First discussion point {#sec-first-point}
+## Paper Overview {#sec-first-point}
 
-If my paper were 10 pages, then should be be at least 2.5 pages. The discussion is a chance to show off what you know and what you learnt from all this. 
+This paper examines the outcome of “whether body cameras were activated” in U.S. fatal police shootings. Using The Washington Post’s 2015–2024 database of fatal police shootings and combining it with U.S. Census Bureau census data from 2015 to 2024.It constructs trends in both the annual rate of fatal police shootings and the annual activation rate of body cameras during such cases. This demonstrates the purpose of this study and why the standardization and transparency of police conduct in fatal shootings have become enduring topics of societal debate in the United States. Most importantly, based on the data structure and after comparing different models, the final choice is that using Bayesian logistic regression model to analyze whether different enforcement scenarios and demographic categories have a systematic impact on enforcement transparency. The model treats body camera activation as the dependent variable, and uses covariates including victim race, gender, age group, whether armed, whether fleeing, whether the victim had mental health issues, and year of cases. Besides, an interaction term between race and whether armed of victim was also included. Because the observational origin of the fatal police shooting data and some assumptions are not strictly satisfied such as the example is independent with each other, the final results represent descriptive associations rather than causal inferences.
 
-## Second discussion point
+## Rising Patterns of Law-Enforcement Transparency
 
-Please don't use these as sub-heading labels - change them to be what your point actually is.
+First, after controlling for other variables, the year and the activation status of body cameras showed a positive correlation. The final analytical results of the model align with the visual data. This indicates that the probability of body cameras being activated between 2015 and 2024 is overall increasing. Although fluctuations are visible in the visual data of body camera activation rates over time, the overall trend is upward. This finding is consistent with the context of U.S. states continuously increasing the purchase and use of body cameras since 2016 (2022). Although this finding superficially supports the continued improvement of police transparency after 2015, this increase in transparency is not homogeneous across all groups and scenarios.
 
-## Third discussion point
+Second, body cameras are more likely to be activated in cases associated with mental health issues. After controlling for victim race, gender, age, whether armed, and whether fled, the coefficient of whether the victim had a mental health illness is significantly positive. This indicates that given the same enforcement situation, if the victim had mental health illness, the body camera activation probability in fatal police shooting is significantly higher than in other victim who did not have mental health illness. This result relates to the growing societal attention to mental health and policing responses mentioned in the @sec-data. But more importantly, police interactions with individual has mental illness are more protective than their interactions with the general individual. (2021) This indicates law enforcement agencies are increasingly aware that mishandling incidents involving victims with mental health conditions often leads to intense public debate and subsequent accountability. Therefore, there are stronger motivations for police and their agencies to ensure transparency in the handling of such cases. This indirectly leads to a significantly higher body camera activation probability in extreme case when the victim has mental health issues compared to other cases.
 
-## Weaknesses and next steps
+Third, probability of body camera activation has significant systemic differences across victim age groups in fatal police shooting case. Using victims under 18 as the reference group, all coefficients for older age groups are negative with 95% credible intervals excluding zero. This indicates that controlling for other variables, the probability of camera activation generally lower with larger age of victim. This does not imply that police is unwilling to record interactions with victims over 18 during enforcement. Rather, it is more likely that in fatal police shooting case, polce tend to protect the legal rights of juveniles by preferring to activate body cameras to ensure transparency and accountability. This leads in a significantly lower overall activation rate across other age groups.
 
-Weaknesses and next steps should also be included.
+Body cameras not only standardize police conduct but also protect the fairness of police accountability. During interactions involving vulnerable groups of prople such as under 18, camera activation probability are often significantly higher. From perspective of relative social fairness, this is not always bad, and vulnerable groups often receive greater attention and consideration in public debate. However, from the perspective of law enforcement agencies, cases involving vulnerable groups are often more sensitive in the public debate. Police accountability in such cases often requires more and stronger evidence . On the other hand, in cases involving vulnerable groups, even minor misconduct by police could lead to serious public trouble after intense social discussion. At the same time, this reminds us that current law enforcement transparency is not fair but is focused on certain social issues.
+
+
+## Complex Race–Armed Patterns and Overlapping Missing Information
+
+Results on the race of victim is more complex. Overall, this study did not find any single race consistently less likely to be recorded across all scenarios. Fryer's analysis of police force usage similarly found that while Blacks and Hispanics faced significantly higher rates of non-lethal force compared to Whites. However, after controlling for situational and behavioral variables, his data did not reveal similarly clear racial disparities in the fatal shooting. (2017) Although this paper and its data are not the most recent, and its findings pertain to whether victims died. However, from the perspective of police decision making in fatal cases, it aligns with the results of this study. Interestingly, cases where race was recorded as “Unknown” were at a more significant disadvantage in terms of body camera activation. This combination is highly alarming, as information missing in real world scenarios is often overlapping. Specifically, in fatal police shooting, some victims lack not only complete names and race documentation but also video evidence of the enforcement process. This reflects a serious social unfairness: certain individuals' deaths in such incidents are more easily forgotten. This may not always be due to data collection issues but also indicates that for some groups in society, even the right to be recorded cannot be guaranteed.
+
+In contrast, this study found no consistent or significant systemic differences in victims' gender, whether they fled, or whether they were armed during police-involved fatalities. This does not mean these factors are not important in the incidents, but rather indicates that the small differences in who is more likely to be recorded in cases with lethal outcomes cannot be explained by a single behavioral label.
+
+In fatal police incidents, whether the victim was armed does not systematically differ based on race in terms of its impact on body camera activation. We have no strong statistical evidence to support the conclusion that a particular race is significantly less likely to be recorded when carrying a weapon. However, racial stereotypes present in the United States may lead police to respond differently to individuals of different races in the same law enforcement situation during rapid-response cases, such as fatal police shootings. Psychological research on racial stereotypes and weapon perception has found that when Black individuals hold daily tools, participants may initially feel these objects more like weapons in the first time. (2025) If similar stereotypes play a role in extreme case, police may have systematic biases in their subjective judgments about “whether a suspect is armed” and “the level of threat” when faced with different races, even when the situation is similar. This could influence decisions of police, including whether to activate body cameras. However, the results of this study were not significant, likely reflecting limitations in data. It is possible that in fatal cases, current information is severely insufficient, such as internal agency policies and the emotional states of different police in enforcement situation, which may affect the activation of body cameras.
+
+## Weaknesses and Limitations
+
+Although this study provides valuable insights for law enforcement agencies in subsequent policy development, it is essential to recognize its weaknesses and limitations.
+
+First, the data only cover fatal police shooting and exclude general police-citizen interactions, which means there is selection bias within the sample. This may cause the model to underestimate or overestimate the true correlation coefficient between the two variables. Public policy research typically is more interested in the generalizability of conclusions. Due to the selection bias of the sample, our conclusions are only valid for the fatal police shooting in the United States. These findings apply specifically to fatal cases and cannot be generalized to general police-citizen interactions.
+
+Second, missing information and sample unevenness further limit interpretability. Given the limited sample size and potential associations between body camera usage and victim characteristics, arbitrarily deleting data potentially relevant to the research question could skew correlation estimates. Therefore, I kept a subset of data labeled “Unknown.” However, the presence of missing values impacts the final conclusion's description. For example, if certain “Unknown” values are significantly higher or lower than the reference group, the final conclusion becomes less interpretable. Furthermore, groups with smaller sample sizes—such as female victims or victims under 18—may yield unstable and inaccurate final coefficient estimates due to sample size limitations.
+
+Third, the Bayesian Logistic Regression model used in this study is relatively simple and may not strictly satisfy the assumption of independence in real world situations which affects the model's predictive ability. For example, in fatal cases, whether officers activate body cameras may be influenced by differing policies across agencies or correlations among officers, making activation rates non-independent. When samples violate the independence assumption, model fitting may produce biased results, leading to unstable and inaccurate conclusions. Currently, the only model I understand to handle correlated samples is the Linear Mixed Model. However, since body camera activation is a binary variable, it cannot be applied. Through research and exploration, I discovered that the Generalized Linear Mixed Model can handle data with sample correlations and binary dependent variables.
+
+Finally, inefficient observation variables may cause the model's predictive performance to not meet expectations. For example, while I could analyze changes in police fatality rates using U.S. Census data, obtaining accurate racial population data is extremely challenging due to data limitations. With respect to predictive performance, the AUC of this study's model on the test set is approximately 0.66. This indicates that even after controlling for variables such as race, age, and mental health illness, our ability to distinguish whether a body camera was activated remains limited. However, variable selection is constrained by the data itself. The activation of body cameras may be influenced by unobserved institutional and situational factors, and using unnecessary variables could lead to model underrfitting. This suggests that only use fatal police shooting data is insufficient for causal inference regarding which groups are more likely to be recorded during fatal cases. Future research should focus on addressing these weaknesses and limitations.
+
+## Future Directions
+
+This analysis only uses police-involved fatality data and cannot compare body camera activation probability across common contacts, non-fatal force cases. Future research should add more levels of data, such as routine traffic pulls, supermarket theft cases and so on. This would not only better help analyze systemic differences in recording rates across different groups during police-public interactions but also better explore consistency in law enforcement transparency throughout the entire system.
+
+Data analysis primarily involves three steps: data collection and cleaning, model and variable selection, and final conclusions. Data missingness is unavoidable, but I will first evaluate its impact on conclusions. If missing data significantly affects model results, I will supplement it using other administrative data or news reports. Model application requires satisfying model assumptions. In practice, sample correlations are common. Therefore, I will employ a Generalized Linear Mixed Model to estimate random intercepts and random slopes, which will help analyze whether systemic differences exist in police transparency. After selecting an appropriate model, variable choice significantly determines analysis quality. Given the limited variables in this dataset, the Bayesian logistic regression model primarily shows associative patterns rather than causal effects on body camera activation across different groups or scenarios in fatal police shooting. Future research will include variables such as departmental body camera policies, disciplinary mechanisms, and body camera usage in police departments. To address sample imbalance, I will employ weighting methods without increasing noise significantly.
+
+The findings of this study indicate that younger victims and victim with mental health illness have more consistent difference in body camera activation probability. However, the study has not explored the intersection of victim race, gender, age, and mental health status. Future research could be designed to analyze these vulnerable groups more precisely, such as focusing on systemic differences in body camera activation probability among black minors with mental health issues. This would not only enable a more detailed analysis of inequalities in police transparency but also provide a basis for targeted interventions and police training.
 
 \newpage
 
 \appendix
 
-# Appendix {-}
+# Appendix {#sec-appendix}
 
+## Markov chain Monte Carlo (MCMC) Mixing and Convergence Diagnostics
 
-# Additional data details
+```{r}
+#| label: fig-rocplot
+#| fig-cap: ROC Plot
+#| echo: false
+#| warning: false
+#| message: false
+# ROC plot
+plot(roc_bayes, main = "ROC of Bayesian Logistic Regression in Test Set")
+```
+
+@fig-rocplot shows that the ROC curve lies entirely above the diagonal line, with an AUC of approximately 0.66 on the test set. This indicates that after controlling for covariates, the model's predictions regarding “whether body-worn cameras were activated” were better than random guessing. However, it only captures partial systematic patterns, and its predictive capability remains limited.
+
+```{r}
+#| label: fig-mcmcplotone
+#| fig-cap: MCMC Trace Plot for Predictor Variable
+#| echo: false
+#| warning: false
+#| message: false
+# MCMC trace plot and Rhat
+draws_array = as.array(model)
+parameter_names = names(coef(model))
+# trace plot
+mcmc_trace(draws_array, pars = parameter_names[1:10])
+```
+
+```{r}
+#| label: fig-mcmcploteleven
+#| fig-cap: MCMC Trace Plot for Predictor Variable
+#| echo: false
+#| warning: false
+#| message: false
+mcmc_trace(draws_array, pars = parameter_names[11:20])
+```
+
+```{r}
+#| label: fig-mcmcplottwentyone
+#| fig-cap: MCMC Trace Plot for Predictor Variable
+#| echo: false
+#| warning: false
+#| message: false
+mcmc_trace(draws_array, pars = parameter_names[21:length(parameter_names)])
+```
+
+@fig-mcmcplotone, @fig-mcmcploteleven and @fig-mcmcplottwentyone show that perform MCMC sampling on the model using 4 chains, each with 2000 iterations (including 1000 warm-up iterations). The trace plots for each parameter show stable, non-trending fluctuations, with good mixing across chains.
+
+```{r}
+#| label: fig-rhat
+#| fig-cap: Rhat Plot
+#| echo: false
+#| warning: false
+#| message: false
+rhat_values = rhat(model)
+mcmc_rhat(rhat_values)
+```
+
+@fig-rhat shows that The R-values for all parameters are very close to 1. 
+
+Therefore, @fig-mcmcplotone, @fig-mcmcploteleven, @fig-mcmcplottwentyone and @fig-rhat indicating that the MCMC chains have mixed well and converged to the same posterior distribution.
 
 
 \newpage
@@ -291,4 +562,13 @@ US Census Bureau. (2025, May 28). State Population Totals and Components of Chan
 
 Use-of-Force. (2024, June 10). Federal Bureau of Investigation. https://www.fbi.gov/how-we-can-help-you/more-fbi-services-and-information/ucr/use-of-force
 
+Laniyonu, A., & Goff, P. A. (2021). Measuring disparities in police use of force and injury among persons with serious mental illness. BMC Psychiatry, 21(1), 500. https://doi.org/10.1186/s12888-021-03510-w
+
+Canada, S. (2025, October 30). Guide to the Census of Population, 2021, Chapter 9 – Data quality evaluation. https://www12.statcan.gc.ca/census-recensement/2021/ref/98-304/2021001/chap9-eng.cfm
+
+Research on Body-Worn Cameras and Law Enforcement | National Institute of Justice. (2022). National Institute of Justice. https://nij.ojp.gov/topics/articles/research-body-worn-cameras-and-law-enforcement
+
+Fryer, R. G., Jr. (2017). An Empirical analysis of racial differences in police use of force. https://fryer.scholars.harvard.edu/sites/g/files/omnuum5986/files/fryer/files/empirical_analysis_tables_figures.pdf
+
+Racial stereotypes can make us see weapons where they don’t exist. (2025). Columbia News. https://news.columbia.edu/news/racial-stereotypes-can-make-us-see-weapons-where-they-dont-exist
 
