@@ -133,9 +133,9 @@ ggplot(change_bodycamera, aes(x = year, y = activation_rate)) + geom_line() +
 #| fig-subcap:
 #|   - "Race of Victim"
 #|   - "Gender of Victim"
-#|   - "Age group of Victim"
-#|   - "Armed status of Victim"
-#|   - "Fleeing status of Victim"
+#|   - "Age Group of Victim"
+#|   - "Armed Status of Victim"
+#|   - "Fleeing Status of Victim"
 #|   - "Mental Illness Related of Victim"
 #| layout-ncol: 2
 #| echo: false
@@ -189,7 +189,7 @@ ggplot(logistic_data2, aes(x = whether_mental_ill)) +geom_bar() +
 #| fig-subcap:
 #|   - "Race of Victim"
 #|   - "Gender of Victim"
-#|   - "Age group of Victim"
+#|   - "Age Group of Victim"
 #|   - "Armed Status of Victim"
 #|   - "Fleeing Status of Victim"
 #|   - "Mental Illness Related of Victim"
@@ -476,7 +476,7 @@ This paper examines the outcome of “whether body cameras were activated” in 
 
 First, after controlling for other variables, the year and the activation status of body cameras showed a positive correlation. The final analytical results of the model align with the visual data. This indicates that the probability of body cameras being activated between 2015 and 2024 is overall increasing. Although fluctuations are visible in the visual data of body camera activation rates over time, the overall trend is upward. This finding is consistent with the context of U.S. states continuously increasing the purchase and use of body cameras since 2016 [@citeNIJBodyWornCameras2022]. Although this finding superficially supports the continued improvement of police transparency after 2015, this increase in transparency is not homogeneous across all groups and scenarios.
 
-Second, body cameras are more likely to be activated in cases associated with mental health issues. After controlling for victim race, gender, age, whether armed, and whether fled, the coefficient of whether the victim had a mental health illness is significantly positive. This indicates that given the same enforcement situation, if the victim had mental health illness, the body camera activation probability in fatal police shooting is significantly higher than in other victim who did not have mental health illness. This result relates to the growing societal attention to mental health and policing responses mentioned in the @sec-data. But more importantly, police interactions with individual has mental illness are more protective than their interactions with the general individual [@citeLaniyonuGoff2021]. This indicates law enforcement agencies are increasingly aware that mishandling incidents involving victims with mental health conditions often leads to intense public debate and subsequent accountability. Therefore, there are stronger motivations for police and their agencies to ensure transparency in the handling of such cases. This indirectly leads to a significantly higher body camera activation probability in extreme case when the victim has mental health issues compared to other cases.
+Second, body cameras are more likely to be activated in cases associated with mental health issues. After controlling for victim race, gender, age, whether armed, and whether fled, the coefficient of whether the victim had a mental health illness is significantly positive. This indicates that given the same enforcement situation, if the victim had mental health illness, the body camera activation probability in fatal police shooting is significantly higher than in other victim who did not have mental health illness. This result relates to the growing societal attention to mental health and policing responses mentioned in the @sec-data. However, police interactions with individual has mental illness are more protective than their interactions with the general individual [@citeLaniyonuGoff2021]. This indicates law enforcement agencies are increasingly aware that mishandling incidents involving victims with mental health conditions often leads to intense public debate and subsequent accountability. Therefore, there are stronger motivations for police and their agencies to ensure transparency in the handling of such cases. This indirectly leads to a significantly higher body camera activation probability in extreme case when the victim has mental health issues compared to other cases.
 
 Third, probability of body camera activation has significant systemic differences across victim age groups in fatal police shooting case. Using victims under 18 as the reference group, all coefficients for older age groups are negative with 95% credible intervals excluding zero. This indicates that controlling for other variables, the probability of camera activation generally lower with larger age of victim. This does not imply that police is unwilling to record interactions with victims over 18 during enforcement. Rather, it is more likely that in fatal police shooting case, polce tend to protect the legal rights of juveniles by preferring to activate body cameras to ensure transparency and accountability. This leads in a significantly lower overall activation rate across other age groups.
 
