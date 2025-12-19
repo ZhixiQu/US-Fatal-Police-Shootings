@@ -9,7 +9,7 @@ This study analyzes changes in U.S. police shooting fatality rates during the 20
 
 The repo is structured as:
 
--   `data/raw_data` contains the raw data as obtained from https://github.com/washingtonpost/data-police-shootings.git (police shooting data), https://www.census.gov/programs-surveys/popest/technical-documentation/research/evaluation-estimates/2020-evaluation-estimates/2010s-state-total.html (U.S. Census Bureau) and https://www.census.gov/data/tables/time-series/demo/popest/2020s-state-total.html (U.S. Census Bureau).
--   `data/analysis_data` contains the cleaned dataset that was constructed.
+-   `data/01-raw_data` contains the raw data as obtained from https://github.com/washingtonpost/data-police-shootings.git (police shooting data), https://www.census.gov/programs-surveys/popest/technical-documentation/research/evaluation-estimates/2020-evaluation-estimates/2010s-state-total.html (U.S. Census Bureau) and https://www.census.gov/data/tables/time-series/demo/popest/2020s-state-total.html (U.S. Census Bureau).
+-   `data/02-analysis_data` contains the cleaned dataset that was constructed.
 -   `paper` contains the files used to generate the paper, including the Quarto document and reference bibliography file, as well as the PDF of the paper. 
 -   `scripts` contains the R scripts used to download and clean data.
